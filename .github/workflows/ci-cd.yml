@@ -54,9 +54,7 @@ jobs:
       # Start Docker daemon
       docker:
         image: docker:dind
-        options: >-
-          --privileged
-          --network=host
+        options: --privileged
         env:
           DOCKER_TLS_CERTDIR: ""
     
