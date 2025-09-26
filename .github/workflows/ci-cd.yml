@@ -52,15 +52,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
-    
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
       with:
-        version: v0.10.0
-        driver-opts: |
-          image=moby/buildkit:latest
+        version: latest
+        driver: docker
     
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -77,28 +73,16 @@ jobs:
           type=sha
           type=ref,event=branch
     
-    - name: Set up Docker Buildx builder
-      run: |
-        docker buildx create --name builder --driver docker-container --use
-        docker buildx inspect --bootstrap
-    
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
         context: .
+        file: ${{ env.DOCKERFILE_PATH }}
         push: ${{ github.ref == 'refs/heads/main' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        build-args: |
-          PYTHON_VERSION=3.11
-          NODE_VERSION=18
-    
-    - name: Clean up Docker Buildx builder
-      if: always()
-      run: |
-        docker buildx rm builder
 
   deploy:
     name: Deploy to Production
