@@ -7,14 +7,15 @@ on:
     branches: [ main ]
 
 env:
-  DOCKER_IMAGE: ${{ vars.DOCKERHUB_USERNAME}}/furhaven
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME || 'yourusername' }}
+  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/furhaven
   DOCKER_TAG: ${{ github.sha }}
   DOCKERFILE_PATH: ./Dockerfile
   DOCKER_CONTEXT: .
   SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
   REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
   REMOTE_USER: ${{ secrets.REMOTE_USER }}
-  REMOTE_PATH: /path/to/deploy/directory
+  REMOTE_PATH: /var/www/furhaven
 
 jobs:
   test:
@@ -88,21 +89,29 @@ jobs:
         # Set default values if environment variables are not set
         DOCKERFILE_PATH=${DOCKERFILE_PATH:-Dockerfile}
         
+        # Ensure the Docker image name is valid
+        DOCKER_IMAGE=${DOCKER_IMAGE:-${{ env.DOCKERHUB_USERNAME }}/furhaven}
+        DOCKER_IMAGE=$(echo "$DOCKER_IMAGE" | tr '[:upper:]' '[:lower:]' | tr -cd '[a-z0-9]._-/')
+        
         # Build the Docker image
         docker buildx build \
           --file "$DOCKERFILE_PATH" \
-          --tag ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
-          --label org.opencontainers.image.revision=${{ github.sha }} \
-          --label org.opencontainers.image.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-          --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+          --tag "$DOCKER_IMAGE:$DOCKER_TAG" \
+          --label org.opencontainers.image.revision="$DOCKER_TAG" \
+          --label org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+          --label org.opencontainers.image.source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
           --cache-from type=gha \
           --cache-to type=gha,mode=max \
           --progress plain \
           .
         
         # Only push if we're on the main branch
-        if [ "${{ github.ref == 'refs/heads/main' }}" = "true" ]; then
-          docker push ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+        if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+          echo "Pushing image to Docker Hub..."
+          docker push "$DOCKER_IMAGE:$DOCKER_TAG"
+          echo "Image pushed successfully: $DOCKER_IMAGE:$DOCKER_TAG"
+        else
+          echo "Skipping push (not on main branch)"
         fi
 
   deploy:
