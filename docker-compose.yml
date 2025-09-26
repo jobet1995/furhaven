@@ -1,0 +1,111 @@
+version: '3.8'
+
+# Define common environment variables
+x-common-env: &common_env
+  PYTHONUNBUFFERED: 1
+  PYTHONDONTWRITEBYTECODE: 1
+  PYTHONPATH: /app
+  DJANGO_SETTINGS_MODULE: furhaven.settings
+  DEBUG: ${DEBUG:-0}
+  SECRET_KEY: ${SECRET_KEY:-django-insecure-change-me-in-production}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-furhaven}
+  POSTGRES_DB: ${POSTGRES_DB:-furhaven}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: 5432
+  # Optimize Python for Docker
+  PYTHONFAULTHANDLER: 1
+  PYTHONHASHSEED: random
+  # Optimize pip
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+  PIP_NO_CACHE_DIR: 1
+
+services:
+  # Django Web Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      bash -c "python manage.py wait_for_db && 
+               python manage.py migrate && 
+               python manage.py collectstatic --noinput &&
+               gunicorn --bind 0.0.0.0:8000 --workers 3 furhaven.wsgi:application"
+    volumes:
+      - .:/app
+      - /app/static
+      - /app/media
+    environment:
+      <<: *common_env
+      # Override for development
+      DEBUG: ${DEBUG:-1}
+      # Set Python path
+      PYTHONPATH: /app:/app/furhaven
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - furhaven_network
+
+  # Nginx Service
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - web
+    restart: unless-stopped
+    networks:
+      - furhaven_network
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-furhaven}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8
+      # Optimize PostgreSQL for development
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    command: >
+      postgres 
+        -c shared_buffers=256MB 
+        -c work_mem=16MB 
+        -c maintenance_work_mem=64MB
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-furhaven}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - furhaven_network
+
+volumes:
+  postgres_data:
+  static_volume:
+  media_volume:
+
+networks:
+  furhaven_network:
+    driver: bridge

@@ -1,0 +1,105 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.python-version
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Docker
+.dockerignore
+
+# Database
+*.db
+*.sqlite3
+
+# Poetry
+poetry.lock
+pyproject.toml
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Local development
+*.local
+
+# Logs
+logs/
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# Local development
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Project specific
+.DS_Store
+Thumbs.db
+
+# Large files
+*.zip
+*.tar.gz
+*.rar
+
+# Cache
+tmp/
+temp/
+.cache/
