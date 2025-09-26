@@ -61,38 +61,25 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Login to Docker Hub
-      uses: docker/login-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    
+        driver: docker
+        
     - name: Build and push Docker image
-      run: |
-        # Set default values if environment variables are not set
-        DOCKERFILE_PATH=${DOCKERFILE_PATH:-Dockerfile}
-        
-        # Ensure the Docker image name is valid
-        DOCKER_IMAGE=${DOCKER_IMAGE:-${{ env.DOCKERHUB_USERNAME }}/furhaven}
-        DOCKER_IMAGE=$(echo "$DOCKER_IMAGE" | tr '[:upper:]' '[:lower:]' | tr -cd '[a-z0-9]._-/')
-        
-        # Build the Docker image
-        docker build \
-          --file "$DOCKERFILE_PATH" \
-          --tag "$DOCKER_IMAGE:$DOCKER_TAG" \
-          --label org.opencontainers.image.revision="$DOCKER_TAG" \
-          --label org.opencontainers.image.created="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-          --label org.opencontainers.image.source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-          .
-        
-        # Only push if we're on the main branch
-        if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-          echo "Pushing image to Docker Hub..."
-          docker push "$DOCKER_IMAGE:$DOCKER_TAG"
-          echo "Image pushed successfully: $DOCKER_IMAGE:$DOCKER_TAG"
-        else
-          echo "Skipping push (not on main branch)"
-        fi
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: ${{ github.ref == 'refs/heads/main' }}
+        tags: |
+          ${{ env.DOCKERHUB_USERNAME || 'yourusername' }}/furhaven:${{ env.DOCKER_TAG }}
+        labels: |
+          org.opencontainers.image.revision=${{ env.DOCKER_TAG }}
+          org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      env:
+        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   deploy:
     name: Deploy to Production
